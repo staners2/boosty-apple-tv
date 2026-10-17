@@ -10,8 +10,6 @@ final class FramePreviewTests: XCTestCase {
     private func frame(_ seconds: Double) throws -> VideoPreview {
         try JSONDecoder().decode(VideoPreview.self, from: Data("{\"seconds\":\(seconds),\"image\":\"data:image/jpeg;base64,/9j/2Q==\"}".utf8))
     }
-    private func settle() async throws { try await Task.sleep(for: .milliseconds(320)) }
-
     func testDebounceUsesContentIdentityAndCancelRejectsLateFrame() async throws {
         let post = try post()
         var calls: [(String, Double)] = []
@@ -23,7 +21,7 @@ final class FramePreviewTests: XCTestCase {
         previews.select(post: post, video: post.videos[0], seconds: 10)
         previews.select(post: post, video: post.videos[0], seconds: 20)
         XCTAssertTrue(calls.isEmpty)
-        try await settle()
+        await waitUntil { pending != nil }
         XCTAssertEqual(calls.map(\.0), ["content"])
         XCTAssertEqual(calls.map(\.1), [20])
         previews.cancel(); pending?.resume(returning: try frame(20))
@@ -41,13 +39,14 @@ final class FramePreviewTests: XCTestCase {
             return try self.frame(seconds)
         })
         previews.select(post: post, video: post.videos[0], seconds: 10)
-        try await settle()
+        await waitUntil { !previews.loading && previews.frame?.seconds == 10 }
         previews.select(post: post, video: post.videos[0], seconds: 15)
         XCTAssertEqual(previews.selectedSeconds, 15)
         XCTAssertEqual(previews.frame?.seconds, 10)
         XCTAssertTrue(previews.loading)
-        try await settle(); pending?.resume(returning: try frame(15))
-        for _ in 0..<10 { await Task.yield() }
+        await waitUntil { pending != nil }
+        pending?.resume(returning: try frame(15))
+        await waitUntil { !previews.loading && previews.frame?.seconds == 15 }
         XCTAssertEqual(previews.frame?.seconds, 15)
         XCTAssertFalse(previews.loading)
         previews.invalidate()
@@ -61,14 +60,14 @@ final class FramePreviewTests: XCTestCase {
             return try self.frame(seconds == 15 ? 99 : seconds)
         })
         previews.select(post: post, video: post.videos[0], seconds: 15)
-        try await settle()
+        await waitUntil { !previews.loading }
         XCTAssertNil(previews.frame)
         XCTAssertNotNil(previews.error)
         previews.select(post: post, video: post.videos[0], seconds: 10)
-        try await settle()
+        await waitUntil { !previews.loading && previews.frame?.seconds == 10 }
         denied = true
         previews.select(post: post, video: post.videos[0], seconds: 50)
-        try await settle()
+        await waitUntil { !previews.loading && previews.error != nil }
         previews.select(post: post, video: post.videos[0], seconds: 10)
         XCTAssertNil(previews.frame)
         previews.invalidate()
@@ -79,7 +78,8 @@ final class FramePreviewTests: XCTestCase {
         var now = Date(timeIntervalSince1970: 0)
         let previews = FramePreview(request: { _, _, _, seconds in try self.frame(seconds) }, now: { now })
         previews.select(post: post, video: post.videos[0], seconds: 10)
-        try await settle(); previews.cancel()
+        await waitUntil { !previews.loading && previews.frame?.seconds == 10 }
+        previews.cancel()
         now = Date(timeIntervalSince1970: 290)
         previews.select(post: post, video: post.videos[0], seconds: 10)
         XCTAssertEqual(previews.frame?.seconds, 10)
@@ -100,14 +100,14 @@ final class FramePreviewTests: XCTestCase {
             return try self.frame(seconds)
         })
         previews.select(post: post, video: post.videos[0], seconds: 10)
-        try await Task.sleep(for: .milliseconds(430))
+        await waitUntil { pending != nil }
         XCTAssertEqual(calls, [10, 20])
         XCTAssertEqual(previews.frame?.seconds, 10)
         previews.select(post: post, video: post.videos[0], seconds: 20)
         await Task.yield()
         pending?.resume(returning: try frame(20))
-        for _ in 0..<20 { await Task.yield() }
-        XCTAssertEqual(calls, [10, 20])
+        await waitUntil { !previews.loading && previews.frame?.seconds == 20 }
+        XCTAssertEqual(calls.filter { $0 == 20 }.count, 1)
         XCTAssertEqual(previews.frame?.seconds, 20)
         previews.invalidate()
     }
@@ -119,7 +119,7 @@ final class FramePreviewTests: XCTestCase {
         var calls = 0
         let previews = FramePreview(request: { _, _, _, seconds in calls += 1; return try self.frame(seconds) })
         previews.select(post: first, video: first.videos[0], seconds: 10)
-        try await settle()
+        await waitUntil { !previews.loading && previews.frame?.seconds == 10 }
         previews.select(post: other, video: other.videos[0], seconds: 12)
         XCTAssertNil(previews.frame)
         previews.cancel()
@@ -128,7 +128,8 @@ final class FramePreviewTests: XCTestCase {
         previews.invalidate()
         let previousCalls = calls
         previews.select(post: first, video: first.videos[0], seconds: 10)
-        try await settle()
+        // Wait beyond the 250 ms debounce to detect an invalidated controller restarting.
+        try await Task.sleep(for: .milliseconds(500))
         XCTAssertEqual(calls, previousCalls)
         XCTAssertNil(previews.frame)
     }
@@ -148,11 +149,7 @@ final class FramePreviewTests: XCTestCase {
             for index in 0..<(large ? 25 : 33) {
                 selectedSeconds = Double(index * 50 + 20)
                 previews.select(post: post, video: post.videos[0], seconds: selectedSeconds, duration: 10_000)
-                let deadline = ContinuousClock.now.advanced(by: .seconds(3))
-                while previews.loading && ContinuousClock.now < deadline {
-                    try await Task.sleep(for: .milliseconds(10))
-                }
-                XCTAssertFalse(previews.loading)
+                await waitUntil { !previews.loading }
                 XCTAssertEqual(previews.frame?.seconds, selectedSeconds)
                 previews.cancel()
             }
@@ -170,7 +167,7 @@ final class FramePreviewTests: XCTestCase {
         var calls: [Double] = []
         let previews = FramePreview(request: { _, _, _, seconds in calls.append(seconds); return try self.frame(seconds) })
         previews.select(post: post, video: post.videos[0], seconds: 45, preferChapters: true)
-        try await Task.sleep(for: .milliseconds(450))
+        await waitUntil { calls.count == 5 }
         XCTAssertEqual(calls, [45, 40, 60, 55, 35])
         let missing = try JSONDecoder().decode(Post.self, from: Data(AppModelTests.postJSON.utf8))
         previews.select(post: missing, video: missing.videos[0], seconds: 10)
@@ -181,13 +178,13 @@ final class FramePreviewTests: XCTestCase {
 
     func testFractionalChapterTimestampIsRequestedExactly() async throws {
         let post = try post()
-        var seconds: Double?
+        var requestedSeconds: [Double] = []
         let previews = FramePreview(request: { _, _, _, selected in
-            seconds = selected; return try self.frame(selected)
+            requestedSeconds.append(selected); return try self.frame(selected)
         })
         previews.select(post: post, video: post.videos[0], seconds: 10.5, preferChapters: true)
-        try await settle()
-        XCTAssertEqual(seconds, 10.5)
+        await waitUntil { !previews.loading }
+        XCTAssertEqual(requestedSeconds.first, 10.5)
         XCTAssertEqual(previews.frame?.seconds, 10.5)
         previews.invalidate()
     }

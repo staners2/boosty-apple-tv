@@ -88,14 +88,6 @@ final class AppModelTests: XCTestCase {
         }
     }
 
-    func waitUntil(_ condition: () -> Bool, file: StaticString = #filePath, line: UInt = #line) async {
-        for _ in 0..<200 {
-            if condition() { return }
-            try? await Task.sleep(for: .milliseconds(5))
-        }
-        XCTFail("State transition timed out", file: file, line: line)
-    }
-
     func finishJSON() -> String {
         "{\"profile\":{\"id\":\"old-account\",\"name\":\"Old\"},\"tvProof\":\"\(credential.tvProof)\"}"
     }
