@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-build:
+    runs-on: macos-26
+    timeout-minutes: 20
+    env:
+      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Prepare build and security tools
+        run: |
+          xcodebuild -version
+          brew install xcodegen gitleaks
+      - name: Scan Git history for secrets
+        run: gitleaks git . --no-banner --redact=100
+      - name: Unit tests
+        run: ./scripts/test.sh
+      - name: Unsigned simulator build
+        run: ./scripts/build.sh simulator

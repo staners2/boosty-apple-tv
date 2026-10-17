@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Shared server / Общий сервер
+    url: https://github.com/staners2/boosty-samsung-tv/issues
+    about: Docker, Helm, shared API and Samsung/PC issues. Native tvOS UI issues belong here.

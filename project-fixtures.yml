@@ -1,0 +1,54 @@
+include:
+  - project.yml
+name: BoostyAppleTV
+targets:
+  BoostyAppleTVFixture:
+    type: application
+    platform: tvOS
+    sources:
+      - path: App
+        excludes:
+          - BoostyApp.swift
+      - path: UITests/Fixtures/FixtureApp.swift
+      - path: UITests/Fixtures/FixtureProtocol.swift
+      - path: build/ui-fixtures/cert.der
+        buildPhase: resources
+    dependencies:
+      - package: BoostyCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: "$(APP_BUNDLE_IDENTIFIER).fixture"
+        PRODUCT_NAME: BoostyAppleTVFixture
+        INFOPLIST_KEY_CFBundleDisplayName: Boosty UI Fixture
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: App Icon & Top Shelf Image
+        TARGETED_DEVICE_FAMILY: "3"
+  BoostyAppleTVFixtureUITests:
+    type: bundle.ui-testing
+    platform: tvOS
+    sources:
+      - path: UITests
+        excludes:
+          - Fixtures
+      - path: UITests/Fixtures/FixtureProtocol.swift
+      - path: build/ui-fixtures/cert.der
+        buildPhase: resources
+    dependencies:
+      - target: BoostyAppleTVFixture
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: "$(APP_BUNDLE_IDENTIFIER).fixture.uitests"
+        TEST_TARGET_NAME: BoostyAppleTVFixture
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) UI_FIXTURE_HOST"
+schemes:
+  BoostyParity:
+    build:
+      targets:
+        BoostyAppleTVFixture: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - BoostyAppleTVFixtureUITests

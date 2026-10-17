@@ -1,0 +1,61 @@
+name: BoostyAppleTV
+options:
+  minimumXcodeGenVersion: 2.46.0
+  deploymentTarget:
+    tvOS: "17.0"
+packages:
+  BoostyCore:
+    path: .
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    APP_BUNDLE_IDENTIFIER: org.boostytv.appletv
+    MARKETING_VERSION: "0.1.2"
+    CURRENT_PROJECT_VERSION: "3"
+    CODE_SIGN_STYLE: Automatic
+    GENERATE_INFOPLIST_FILE: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+targets:
+  BoostyAppleTV:
+    type: application
+    platform: tvOS
+    sources:
+      - App
+    dependencies:
+      - package: BoostyCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: "$(APP_BUNDLE_IDENTIFIER)"
+        PRODUCT_NAME: BoostyAppleTV
+        INFOPLIST_KEY_CFBundleDisplayName: Boosty
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.entertainment
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: App Icon & Top Shelf Image
+        TARGETED_DEVICE_FAMILY: "3"
+  BoostyAppleTVUITests:
+    type: bundle.ui-testing
+    platform: tvOS
+    sources:
+      - path: UITests
+        excludes:
+          - Fixtures
+    dependencies:
+      - target: BoostyAppleTV
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: "$(APP_BUNDLE_IDENTIFIER).uitests"
+        TEST_TARGET_NAME: BoostyAppleTV
+schemes:
+  BoostyAppleTV:
+    build:
+      targets:
+        BoostyAppleTV: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - BoostyAppleTVUITests
+    archive:
+      config: Release

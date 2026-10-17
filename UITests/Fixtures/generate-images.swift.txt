@@ -1,0 +1,18 @@
+import AppKit
+import CoreImage
+
+let directory = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
+let context = CIContext()
+let background = CIImage(color: CIColor(red: 0.08, green: 0.23, blue: 0.42))
+    .cropped(to: CGRect(x: 0, y: 0, width: 640, height: 360))
+let cgImage = context.createCGImage(background, from: background.extent)!
+let image = NSBitmapImageRep(cgImage: cgImage)
+try image.representation(using: .png, properties: [:])!.write(to: directory.appendingPathComponent("image.png"))
+try image.representation(using: .jpeg, properties: [.compressionFactor: 0.8])!
+    .write(to: directory.appendingPathComponent("preview.jpg"))
+let qr = CIFilter(name: "CIQRCodeGenerator", parameters: [
+    "inputMessage": Data(("https://localhost:18765/link/fixturepair0000000000000#" + String(repeating: "l", count: 43)).utf8),
+    "inputCorrectionLevel": "M"
+])!.outputImage!.transformed(by: CGAffineTransform(scaleX: 8, y: 8))
+let qrImage = NSBitmapImageRep(cgImage: context.createCGImage(qr, from: qr.extent)!)
+try qrImage.representation(using: .png, properties: [:])!.write(to: directory.appendingPathComponent("qr.png"))

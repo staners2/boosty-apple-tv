@@ -1,0 +1,27 @@
+name: Bug report / Ошибка
+description: Report a reproducible Apple TV playback, navigation, pairing or installation issue.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        English and Russian are welcome. Never include cookies, device proofs, phone numbers, active QR codes, signed media URLs or Apple signing keys.
+        Server deployment and Samsung/PC issues: https://github.com/staners2/boosty-samsung-tv/issues.
+  - type: textarea
+    id: environment
+    attributes:
+      label: Device and build / Устройство и сборка
+      description: Apple TV model or simulator, tvOS/Xcode versions, app commit/version and installation method. Include the server commit if known, not UDIDs, team IDs or private hostnames.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction / Воспроизведение
+      description: Steps, expected and actual result. Include Siri Remote actions for focus issues and MP4/HLS for playback if known.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized errors or screenshots / Безопасные логи и скриншоты
+      description: Remove private account data and credentials before attaching anything.
