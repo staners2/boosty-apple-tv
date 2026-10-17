@@ -136,17 +136,26 @@ final class FramePreviewTests: XCTestCase {
     func testCacheEvictsByCountAndEncodedImageMemory() async throws {
         let post = try post()
         for large in [false, true] {
+            var selectedSeconds: Double = 0
             let previews = FramePreview(request: { _, _, _, seconds in
+                // Fill with foreground frames only; prefetch scheduling must not determine whether the limit is reached.
+                guard seconds == selectedSeconds else { throw BrokerError(status: 404, code: "preview_unavailable") }
                 let image = large ? "data:image/jpeg;base64," + Data([0xff, 0xd8] + Array(repeating: 0, count: 65000) + [0xff, 0xd9]).base64EncodedString()
                                   : "data:image/jpeg;base64,/9j/2Q=="
                 let data = try JSONSerialization.data(withJSONObject: ["seconds": seconds, "image": image])
                 return try JSONDecoder().decode(VideoPreview.self, from: data)
             })
-            for index in 0..<(large ? 9 : 12) {
-                previews.select(post: post, video: post.videos[0], seconds: Double(index * 50 + 20), duration: 1000)
-                try await Task.sleep(for: .milliseconds(400))
+            for index in 0..<(large ? 25 : 33) {
+                selectedSeconds = Double(index * 50 + 20)
+                previews.select(post: post, video: post.videos[0], seconds: selectedSeconds, duration: 10_000)
+                let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+                while previews.loading && ContinuousClock.now < deadline {
+                    try await Task.sleep(for: .milliseconds(10))
+                }
+                XCTAssertFalse(previews.loading)
+                XCTAssertEqual(previews.frame?.seconds, selectedSeconds)
+                previews.cancel()
             }
-            previews.cancel()
             previews.select(post: post, video: post.videos[0], seconds: 20, duration: 1000)
             XCTAssertTrue(previews.loading, "Old frame must be evicted by \(large ? "bytes" : "count")")
             XCTAssertNotEqual(previews.frame?.seconds, 20)

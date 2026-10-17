@@ -30,6 +30,8 @@ jobs:
           brew install xcodegen gitleaks
       - name: Scan Git history for secrets
         run: gitleaks git . --no-banner --redact=100
+      - name: Generate project and assets
+        run: ./scripts/generate.sh
       - name: Unit tests
         run: ./scripts/test.sh
       - name: Unsigned simulator build
